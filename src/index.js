@@ -1,17 +1,20 @@
 import _ from 'lodash';
+import React from 'react';
+import ReactDOM from 'react-dom';
+
 import './style.css';
 import tuxIconUrl from './tux.png';
 
-function component() {
-  var e = document.createElement("div");
-  e.innerHTML = _.join(['Hello', 'webpack'], ' ');
-  e.classList.add('redify');
-
-  var i = new Image();
-  i.src = tuxIconUrl;
-  e.appendChild(i);
-
-  return e;
+function Test(props) {
+  return (
+    <div>
+      <h1 className='redify'>{_.join(['Hello', props.children])}</h1>
+      <img src={props.src}></img>
+    </div>
+  );
 }
 
-document.body.appendChild(component());
+ReactDOM.render(
+  <Test src={tuxIconUrl}>test</Test>,
+  document.getElementById('root')
+);
