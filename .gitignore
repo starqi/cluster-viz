@@ -1,5 +1,3 @@
 node_modules
-dist/*.js
-dist/*.png
-dist/*.jpeg
-dist/*.gif
+dist/*
+!dist/index.html
