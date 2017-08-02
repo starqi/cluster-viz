@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-  entry: './src/index.js',
+  entry: './src/index.jsx',
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist')
@@ -14,12 +14,12 @@ module.exports = {
           'css-loader'
         ]
       },
-      { test: /\.(jpeg|png|gif)$/,
+      { test: /\.(jpeg|png|gif|svg|ttf|eot|woff|woff2)$/,
         use: [
           'file-loader'
         ]
       },
-      { test: /\.js$/,
+      { test: /\.jsx$/,
         loader: 'babel-loader',
         exclude: /node_modules/,
         options: {
