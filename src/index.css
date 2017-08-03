@@ -1,0 +1,34 @@
+.somePadding {
+  margin: 5px;
+}
+
+.someVerticalPadding {
+  margin-top: 20px;
+}
+
+.someHorizontalPadding {
+  margin-left: 5px;
+}
+
+.myTextArea {
+  width: 100%;
+  height: 150px !important;
+}
+
+#myLogo {
+  width: 22px;
+  vertical-align: bottom;
+}
+
+#myTitle {
+  color: black;
+  text-align: center;
+}
+
+.formNoBottom {
+  margin-bottom: 0px;
+}
+
+.inlinedDiv {
+  display: inline-block;
+}
