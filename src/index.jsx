@@ -1,16 +1,87 @@
-// Libraries
 import _ from 'lodash';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import Bootstrap from 'bootstrap/dist/css/bootstrap.css';
 import $ from 'jquery';
+import {createStore, applyMiddleware} from 'redux';
+import {connect, Provider} from 'react-redux';
+import ReactThunk from 'redux-thunk';
+import {createSelector} from 'reselect';
 
-// App
+// ---
+
 import './index.css';
 import tuxIconUrl from './tux.png';
 
-// A single deletable set of textboxes
-// Props: children, title, onDeleteSignal, id
+//////////////////////
+// Redux 
+
+// <Action creators>
+
+function addTD(td) {
+  return {type: 'ADD_TD', td};
+}
+
+function deleteTD(id) {
+  return {type: 'DELETE_TD', id};
+}
+
+function beginRSS() {
+  return {type: 'BEGIN_RSS'};
+}
+
+function endRSS() {
+  return {type: 'END_RSS'};
+}
+
+function requestRSS(url) {
+  return (dispatch, getState) => {
+    setTimeout(() => {
+      dispatch(addTD({title: 'a', description: 'a'}));
+      dispatch(addTD({title: 'b', description: 'b'}));
+      dispatch(addTD({title: 'c', description: 'c'}));
+      dispatch(endRSS());
+    }, 1000);
+    dispatch(beginRSS());
+  };
+}
+
+// <Reducers>
+
+const defaultState = {
+  tds: [],
+  idCounter: 0
+};
+
+function mainReducer(state = defaultState, action) {
+  switch (action.type) {
+    case 'ADD_TD':
+      const tdWithID = Object.assign({}, action.td, {id: state.idCounter});
+      console.log(tdWithID);
+      return Object.assign({}, state, {
+        tds: [...state.tds, tdWithID],
+        idCounter: state.idCounter + 1
+      });
+    case 'DELETE_TD':
+      return Object.assign({}, state, {
+        tds: state.tds.filter((a) => a.id != action.id)
+      });
+    case 'BEGIN_RSS':
+      console.log('Not implemented yet! Start RSS loading screen');
+      return state;
+    case 'END_RSS':
+      console.log('Not implemented yet! End RSS loading screen');
+      return state;
+    default:
+      return state;
+  }
+}
+
+//////////////////////
+// React views
+
+// A single deletable pair - title & description
+// [Props: children - the description, title, onDeleteSignal, id]
 class TitleDescription extends React.Component {
   constructor(props) {
     super(props);
@@ -26,11 +97,9 @@ class TitleDescription extends React.Component {
   onDeleteClick(e) {
     this.props.onDeleteSignal(this.props.id);
   }
-
   onTitleChange(e) {
     this.setState({title: e.target.value});
   }
-
   onDescriptionChange(e) {
     this.setState({description: e.target.value});
   }
@@ -56,103 +125,8 @@ class TitleDescription extends React.Component {
   }
 }
 
-// A modifiable list of TitleDescriptions
-// Props: children
-class TDList extends React.Component {
-  constructor(props) {
-    super(props);
-
-    this.onAddClick = this.onAddClick.bind(this);
-    this.onDeleteSignal = this.onDeleteSignal.bind(this);
-    this.addTitleDescription = this.addTitleDescription.bind(this);
-    this.onRSSClick = this.onRSSClick.bind(this);
-    this.onPromptClick = this.onPromptClick.bind(this);
-
-    this.state = {
-      tdList: [],
-      keyCounter: 0,
-      promptVisible: false
-    }
-
-    // Import initial list of TitleDescriptions if any
-    if (props.children !== undefined) {
-      let children = props.children;
-      if (!Array.isArray(children)) // If only one, it's not an array...
-        children = [children];
-
-      // Map initial list to actual state list
-      this.state.tdList = children.map((a, i) => {
-        return (
-          <TitleDescription 
-            key={i} id={i} title={a.props.title}
-            onDeleteSignal={this.onDeleteSignal}>
-            {a.props.children}
-          </TitleDescription>
-        );
-      });
-
-      // Assumes state counter increases first, then assigned
-      this.state.keyCounter = children.length - 1; 
-    }
-  }
-
-  onAddClick(e) {
-    this.addTitleDescription('', '');
-  }
-
-  addTitleDescription(title, description) {
-    this.setState((prevState) => {
-      const newKeyCounter = prevState.keyCounter + 1; // Assign unique ID
-      prevState.tdList.push(
-        <TitleDescription
-          key={newKeyCounter} id={newKeyCounter}
-          title={title} onDeleteSignal={this.onDeleteSignal}>
-          {description}
-        </TitleDescription>
-      );
-      return {tdList: prevState.tdList, keyCounter: newKeyCounter};
-    });
-  }
-
-  onRSSClick() {
-    this.setState((prevState) => {return {promptVisible: !prevState.promptVisible}});
-  }
-
-  onPromptClick(url) {
-    this.setState({promptVisible: false});
-    alert(url);
-  }
-
-  // Sent by children for deletion request
-  // i - ID of child
-  onDeleteSignal(i) {
-    this.setState((prevState) => {
-      // Delete matching ID
-      const index = prevState.tdList.findIndex((a) => a.props.id == i);
-      prevState.tdList.splice(index, 1);
-      return {tdList: prevState.tdList};
-    });
-  }
-
-  render() {
-    return (
-      <div className='somePadding'>
-        <div style={{textAlign: 'center'}}>
-          <button className='btn btn-info' onClick={this.onAddClick}>+</button>
-          <button className='someHorizontalPadding btn btn-info' onClick={this.onRSSClick}>RSS</button>
-        </div>
-        <SimplePrompt 
-          buttonLabel='Add' 
-          visible={this.state.promptVisible} 
-          onClick={this.onPromptClick} />
-        {this.state.tdList}
-      </div>
-    );
-  }
-}
-
 // A text prompt that disappears when submitted, initially invisible
-// Props: visible, buttonLabel, onClick
+// [Props: visible, buttonLabel, onClick]
 class SimplePrompt extends React.Component {
   constructor(props) {
     super(props);
@@ -164,7 +138,6 @@ class SimplePrompt extends React.Component {
   onChange(e) {
     this.setState({value: e.target.value});
   }
-
   onClick(e) {
     this.props.onClick(this.state.value);
     this.setState({value: ''});
@@ -193,19 +166,116 @@ class SimplePrompt extends React.Component {
   }
 }
 
-ReactDOM.render(
-  <div>
-    <div id='myTitle'> 
-      <div className='inlinedDiv'>
-        <img id='myLogo' className='img-circle' src={tuxIconUrl}></img>
+// Two add buttons for adding a new box or importing an RSS feed
+// [Props: onAdd, onRSS]
+class TDAdder extends React.Component {
+  constructor(props) {
+    super(props);
+    this.onAddClick = this.onAddClick.bind(this);
+    this.onRSSClick = this.onRSSClick.bind(this);
+    this.onPromptClick = this.onPromptClick.bind(this);
+    this.state = {
+      promptVisible: false
+    };
+  }
+
+  onPromptClick(url) {
+    this.setState({promptVisible: false});
+    this.props.onRSS(url);
+  }
+
+  onAddClick(e) {
+    this.props.onAdd();
+  }
+
+  onRSSClick(e) {
+    this.setState((prevState) => {return {promptVisible: !prevState.promptVisible}});
+  }
+
+  render() {
+    return (
+      <div className='somePadding'>
+        <div style={{textAlign: 'center'}}>
+          <button className='btn btn-info' onClick={this.onAddClick}>+</button>
+          <button className='someHorizontalPadding btn btn-info' onClick={this.onRSSClick}>RSS</button>
+        </div>
+        <SimplePrompt 
+          buttonLabel='Add' 
+          visible={this.state.promptVisible} 
+          onClick={this.onPromptClick} />
       </div>
-      <div className='inlinedDiv'>
-        <h1>InterestSummarizer</h1>
-      </div>
+    );
+  }
+}
+
+// A list of TitleDescriptions
+// [Props: tds - list of {title, description, id}, onDelete]
+function TDList(props) {
+  return (
+    <div className='somePadding'>
+      {props.tds.map((a) => 
+        <TitleDescription 
+          key={a.id} id={a.id}
+          onDeleteSignal={props.onDelete}
+          title={a.title}>{a.description}</TitleDescription>
+      )}
     </div>
-    <TDList>
-      <TitleDescription title='Web development'>Frontend, backend, databases, React, Redux.</TitleDescription>
-    </TDList>
-  </div>,
+  );
+}
+
+// The main app
+// [Props: tds - list of {title, description, id}, onAdd, onRSS, onDelete]
+function App(props) {
+  return (
+    <div>
+      <div id='myTitle'> 
+        <div className='inlinedDiv'>
+          <h1>Interest</h1>
+        </div>
+        <div className='inlinedDiv'>
+          <img id='myLogo' className='img-circle' src={tuxIconUrl}></img>
+        </div>
+        <div className='inlinedDiv'>
+          <h1>Summarizer</h1>
+        </div>
+      </div>
+      <TDAdder onAdd={props.onAdd} onRSS={props.onRSS} />
+      <TDList tds={props.tds} onDelete={props.onDelete} />
+    </div>
+  );
+}
+
+////////////////////////
+// React-redux
+
+function mapStateToProps({ tds }) {
+  return { tds };
+}
+
+function mapDispatchToProps(dispatch) {
+  return {
+    onAdd: () => {
+      dispatch(addTD({title: '', description: ''}));
+    },
+    onRSS: (url) => {
+      dispatch(requestRSS(url));
+    },
+    onDelete: (id) => {
+      dispatch(deleteTD(id));
+    }
+  };
+}
+
+const AppContainer = connect(mapStateToProps, mapDispatchToProps)(App);
+
+////////////////////
+// Run
+
+let store = createStore(mainReducer, applyMiddleware(ReactThunk));
+
+ReactDOM.render(
+  <Provider store={store}>
+    <AppContainer />
+  </Provider>,
   document.getElementById('root')
 );
