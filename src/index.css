@@ -12,12 +12,12 @@
 
 .myTextArea {
   width: 100%;
-  height: 150px !important;
+  height: 100px !important;
 }
 
 #myLogo {
-  width: 22px;
-  vertical-align: bottom;
+  width: 35px;
+  vertical-align: text-bottom;
 }
 
 #myTitle {

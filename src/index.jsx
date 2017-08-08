@@ -26,38 +26,57 @@ function deleteTD(id) {
   return {type: 'DELETE_TD', id};
 }
 
-function beginRSS() {
+function beginRss() {
   return {type: 'BEGIN_RSS'};
 }
 
-function endRSS() {
+function endRss() {
   return {type: 'END_RSS'};
 }
 
-function requestRSS(url) {
+function errorRss() {
+  return {type: 'ERROR_RSS'};
+}
+
+function flashErrorRss() {
   return (dispatch, getState) => {
+    dispatch(errorRss());
     setTimeout(() => {
-      dispatch(addTD({title: 'a', description: 'a'}));
-      dispatch(addTD({title: 'b', description: 'b'}));
-      dispatch(addTD({title: 'c', description: 'c'}));
-      dispatch(endRSS());
-    }, 1000);
-    dispatch(beginRSS());
+      dispatch(endRss());
+    }, 500);
+  };
+}
+
+function requestRss(url) {
+  return (dispatch, getState) => {
+    dispatch(beginRss());
+    $.get('rss', {url}).done((data) => {
+      console.log('RSS success');
+      data.forEach((td) => {
+        dispatch(addTD(td));
+      });
+      dispatch(endRss());
+    }).fail(() => {
+      console.log('RSS failed');
+      dispatch(flashErrorRss());
+    });
   };
 }
 
 // <Reducers>
 
+const RSS_NORMAL = 0, RSS_WORKING = 1, RSS_FAILED = 2;
+
 const defaultState = {
   tds: [],
-  idCounter: 0
+  idCounter: 0,
+  rssState: RSS_NORMAL
 };
 
 function mainReducer(state = defaultState, action) {
   switch (action.type) {
     case 'ADD_TD':
       const tdWithID = Object.assign({}, action.td, {id: state.idCounter});
-      console.log(tdWithID);
       return Object.assign({}, state, {
         tds: [...state.tds, tdWithID],
         idCounter: state.idCounter + 1
@@ -67,11 +86,18 @@ function mainReducer(state = defaultState, action) {
         tds: state.tds.filter((a) => a.id != action.id)
       });
     case 'BEGIN_RSS':
-      console.log('Not implemented yet! Start RSS loading screen');
-      return state;
+      return Object.assign({}, state, {
+        rssState: RSS_WORKING
+      });
     case 'END_RSS':
-      console.log('Not implemented yet! End RSS loading screen');
+      return Object.assign({}, state, {
+        rssState: RSS_NORMAL
+      });
       return state;
+    case 'ERROR_RSS':
+      return Object.assign({}, state, {
+        rssState: RSS_FAILED
+      });
     default:
       return state;
   }
@@ -97,9 +123,11 @@ class TitleDescription extends React.Component {
   onDeleteClick(e) {
     this.props.onDeleteSignal(this.props.id);
   }
+
   onTitleChange(e) {
     this.setState({title: e.target.value});
   }
+
   onDescriptionChange(e) {
     this.setState({description: e.target.value});
   }
@@ -133,14 +161,34 @@ class SimplePrompt extends React.Component {
     this.state = {value: ''};
     this.onChange = this.onChange.bind(this);
     this.onClick = this.onClick.bind(this);
+    this.onKeyDown = this.onKeyDown.bind(this);
+    this.tryFinishPrompt = this.tryFinishPrompt.bind(this);
   }
 
   onChange(e) {
     this.setState({value: e.target.value});
   }
+
+  onKeyDown(e) {
+    if (e.keyCode === 13) {
+      this.tryFinishPrompt();
+    }
+  }
+
   onClick(e) {
+    this.tryFinishPrompt();
+  }
+
+  tryFinishPrompt() {
+    if (this.state.value.trim() == '') return;
     this.props.onClick(this.state.value);
     this.setState({value: ''});
+  }
+
+  componentDidUpdate() {
+    if (this.props.visible) {
+      this.domRef.focus();
+    }
   }
 
   render() {
@@ -155,9 +203,11 @@ class SimplePrompt extends React.Component {
           </button>
           <div style={{overflow: 'hidden'}}>
             <input 
+              ref={(a) => this.domRef = a}
               style={{width: '100%'}}
               className='form-control' 
               value={this.state.value} 
+              onKeyDown={this.onKeyDown}
               onChange={this.onChange}></input>
           </div>
         </div>
@@ -167,12 +217,12 @@ class SimplePrompt extends React.Component {
 }
 
 // Two add buttons for adding a new box or importing an RSS feed
-// [Props: onAdd, onRSS]
+// [Props: onAdd, onRss, rssColor]
 class TDAdder extends React.Component {
   constructor(props) {
     super(props);
     this.onAddClick = this.onAddClick.bind(this);
-    this.onRSSClick = this.onRSSClick.bind(this);
+    this.onRssClick = this.onRssClick.bind(this);
     this.onPromptClick = this.onPromptClick.bind(this);
     this.state = {
       promptVisible: false
@@ -181,14 +231,14 @@ class TDAdder extends React.Component {
 
   onPromptClick(url) {
     this.setState({promptVisible: false});
-    this.props.onRSS(url);
+    this.props.onRss(url);
   }
 
   onAddClick(e) {
     this.props.onAdd();
   }
 
-  onRSSClick(e) {
+  onRssClick(e) {
     this.setState((prevState) => {return {promptVisible: !prevState.promptVisible}});
   }
 
@@ -197,7 +247,10 @@ class TDAdder extends React.Component {
       <div className='somePadding'>
         <div style={{textAlign: 'center'}}>
           <button className='btn btn-info' onClick={this.onAddClick}>+</button>
-          <button className='someHorizontalPadding btn btn-info' onClick={this.onRSSClick}>RSS</button>
+          <button 
+            style={{backgroundColor: this.props.rssColor}}
+            className='someHorizontalPadding btn btn-info' 
+            onClick={this.onRssClick}>RSS</button>
         </div>
         <SimplePrompt 
           buttonLabel='Add' 
@@ -224,22 +277,22 @@ function TDList(props) {
 }
 
 // The main app
-// [Props: tds - list of {title, description, id}, onAdd, onRSS, onDelete]
+// [Props: tds - list of {title, description, id}, rssColor, onAdd, onRss, onDelete]
 function App(props) {
   return (
     <div>
       <div id='myTitle'> 
         <div className='inlinedDiv'>
-          <h1>Interest</h1>
+          <h1>Cluster</h1>
         </div>
         <div className='inlinedDiv'>
           <img id='myLogo' className='img-circle' src={tuxIconUrl}></img>
         </div>
         <div className='inlinedDiv'>
-          <h1>Summarizer</h1>
+          <h1>Viz</h1>
         </div>
       </div>
-      <TDAdder onAdd={props.onAdd} onRSS={props.onRSS} />
+      <TDAdder onAdd={props.onAdd} onRss={props.onRss} rssColor={props.rssColor}/>
       <TDList tds={props.tds} onDelete={props.onDelete} />
     </div>
   );
@@ -248,8 +301,30 @@ function App(props) {
 ////////////////////////
 // React-redux
 
-function mapStateToProps({ tds }) {
-  return { tds };
+function getRssState(state) {
+  return state.rssState;
+}
+
+const getRssColor = createSelector(
+  getRssState,
+  (rssState) => {
+    switch (rssState) {
+      case RSS_NORMAL:
+        return '';
+      case RSS_WORKING:
+        return 'green';
+      case RSS_FAILED:
+        return 'red';
+      default:
+        throw 'getRssColor invalid input';
+    }
+  } 
+);
+
+function makeMapStateToProps() {
+  return (state) => {
+    return {tds: state.tds, rssColor: getRssColor(state)};
+  };
 }
 
 function mapDispatchToProps(dispatch) {
@@ -257,8 +332,8 @@ function mapDispatchToProps(dispatch) {
     onAdd: () => {
       dispatch(addTD({title: '', description: ''}));
     },
-    onRSS: (url) => {
-      dispatch(requestRSS(url));
+    onRss: (url) => {
+      dispatch(requestRss(url));
     },
     onDelete: (id) => {
       dispatch(deleteTD(id));
@@ -266,7 +341,7 @@ function mapDispatchToProps(dispatch) {
   };
 }
 
-const AppContainer = connect(mapStateToProps, mapDispatchToProps)(App);
+const AppContainer = connect(makeMapStateToProps, mapDispatchToProps)(App);
 
 ////////////////////
 // Run
