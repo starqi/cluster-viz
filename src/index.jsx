@@ -1,8 +1,8 @@
+import 'bootstrap/dist/css/bootstrap.min.css';
+import * as Bootstrap from 'bootstrap/dist/js/bootstrap.min.js';
 import _ from 'lodash';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import Bootstrap from 'bootstrap/dist/css/bootstrap.css';
-import $ from 'jquery';
 import {createStore, applyMiddleware} from 'redux';
 import {connect, Provider} from 'react-redux';
 import ReactThunk from 'redux-thunk';
@@ -18,11 +18,15 @@ import tuxIconUrl from './tux.png';
 
 // <Action creators>
 
-function addTD(td) {
+function addTd(td) {
   return {type: 'ADD_TD', td};
 }
 
-function deleteTD(id) {
+function updateTd(td) {
+  return {type: 'UPDATE_TD', td};
+}
+
+function deleteTd(id) {
   return {type: 'DELETE_TD', id};
 }
 
@@ -34,13 +38,13 @@ function endRss() {
   return {type: 'END_RSS'};
 }
 
-function errorRss() {
+function beginErrorRss() {
   return {type: 'ERROR_RSS'};
 }
 
 function flashErrorRss() {
   return (dispatch, getState) => {
-    dispatch(errorRss());
+    dispatch(beginErrorRss());
     setTimeout(() => {
       dispatch(endRss());
     }, 500);
@@ -50,10 +54,10 @@ function flashErrorRss() {
 function requestRss(url) {
   return (dispatch, getState) => {
     dispatch(beginRss());
-    $.get('rss', {url}).done((data) => {
+    $.get('rss', {url}).done(data => {
       console.log('RSS success');
-      data.forEach((td) => {
-        dispatch(addTD(td));
+      data.forEach(td => {
+        dispatch(addTd(td));
       });
       dispatch(endRss());
     }).fail(() => {
@@ -63,14 +67,47 @@ function requestRss(url) {
   };
 }
 
+function beginSubmit() {
+  return {type: 'BEGIN_SUBMIT'};
+}
+
+function endSubmit() {
+  return {type: 'END_SUBMIT'};
+}
+
+const PAD_TIME = 3000; // lol
+function submit() {
+  return (dispatch, getState) => {
+    dispatch(beginSubmit());
+    setTimeout(() => {
+      $.ajax({
+        type: 'POST',
+        url: 'cluster',
+        data: JSON.stringify(_.pick(getState(), ['tds'])),
+        contentType: 'application/json',
+        dataType: 'json'
+      }).done(data => {
+        console.log('Cluster success');
+        alert('')
+        dispatch(endSubmit());
+      }).fail(() => {
+        console.log('Cluster failed');
+        alert('')
+        dispatch(endSubmit());
+      });
+    }, PAD_TIME);
+  };
+}
+
 // <Reducers>
 
-const RSS_NORMAL = 0, RSS_WORKING = 1, RSS_FAILED = 2;
+const RSS_NORMAL = Symbol(), RSS_WORKING = Symbol(), RSS_FAILED = Symbol();
 
 const defaultState = {
   tds: [],
   idCounter: 0,
-  rssState: RSS_NORMAL
+  rssState: RSS_NORMAL,
+  isSubmitting: false
 };
 
 function mainReducer(state = defaultState, action) {
@@ -81,9 +118,13 @@ function mainReducer(state = defaultState, action) {
         tds: [...state.tds, tdWithID],
         idCounter: state.idCounter + 1
       });
+    case 'UPDATE_TD':
+      return Object.assign({}, state, {
+        tds: state.tds.map(a => a.id === action.td.id ? action.td : a)
+      });
     case 'DELETE_TD':
       return Object.assign({}, state, {
-        tds: state.tds.filter((a) => a.id != action.id)
+        tds: state.tds.filter(a => a.id !== action.id)
       });
     case 'BEGIN_RSS':
       return Object.assign({}, state, {
@@ -98,6 +139,14 @@ function mainReducer(state = defaultState, action) {
       return Object.assign({}, state, {
         rssState: RSS_FAILED
       });
+    case 'BEGIN_SUBMIT':
+      return Object.assign({}, state, {
+        isSubmitting: true
+      });
+    case 'END_SUBMIT':
+      return Object.assign({}, state, {
+        isSubmitting: false
+      });
     default:
       return state;
   }
@@ -107,7 +156,7 @@ function mainReducer(state = defaultState, action) {
 // React views
 
 // A single deletable pair - title & description
-// [Props: children - the description, title, onDeleteSignal, id]
+// [Props: children - the description, title, id, onDelete, onLoseFocus]
 class TitleDescription extends React.Component {
   constructor(props) {
     super(props);
@@ -115,21 +164,23 @@ class TitleDescription extends React.Component {
       title: props.title,
       description: props.children
     };
-    this.onTitleChange = this.onTitleChange.bind(this);
-    this.onDescriptionChange = this.onDescriptionChange.bind(this);
-    this.onDeleteClick = this.onDeleteClick.bind(this);
   }
 
-  onDeleteClick(e) {
-    this.props.onDeleteSignal(this.props.id);
+  onDeleteClick = e => {
+    this.props.onDelete(this.props.id);
   }
 
-  onTitleChange(e) {
+  onTitleChange = e => {
     this.setState({title: e.target.value});
   }
 
-  onDescriptionChange(e) {
+  onDescriptionChange = e => {
     this.setState({description: e.target.value});
+  }
+
+  onBlur = e => {
+    // Send update notifications on focus loss instead of text change
+    this.props.onLoseFocus(Object.assign({}, this.state, {id: this.props.id}));
   }
 
   render() {
@@ -139,11 +190,19 @@ class TitleDescription extends React.Component {
           <form className='formNoBottom'>
             <div className='form-group'> 
               <label>Title</label>
-              <input className='form-control' value={this.state.title} onChange={this.onTitleChange}></input>
+              <input 
+                className='form-control' 
+                value={this.state.title} 
+                onChange={this.onTitleChange}
+                onBlur={this.onBlur} />
             </div>
             <div className='form-group'>
               <label>Description</label>
-              <textarea className='myTextArea form-control' value={this.state.description} onChange={this.onDescriptionChange}></textarea>
+              <textarea 
+                className='myTextArea form-control' 
+                value={this.state.description} 
+                onChange={this.onDescriptionChange}
+                onBlur={this.onBlur} />
             </div>
             <button className='btn btn-primary' onClick={this.onDeleteClick}>Delete</button>
           </form>
@@ -159,33 +218,30 @@ class SimplePrompt extends React.Component {
   constructor(props) {
     super(props);
     this.state = {value: ''};
-    this.onChange = this.onChange.bind(this);
-    this.onClick = this.onClick.bind(this);
-    this.onKeyDown = this.onKeyDown.bind(this);
-    this.tryFinishPrompt = this.tryFinishPrompt.bind(this);
   }
 
-  onChange(e) {
+  onChange = e => {
     this.setState({value: e.target.value});
   }
 
-  onKeyDown(e) {
+  onKeyDown = e => {
     if (e.keyCode === 13) {
       this.tryFinishPrompt();
     }
   }
 
-  onClick(e) {
+  onClick = e => {
     this.tryFinishPrompt();
   }
 
-  tryFinishPrompt() {
+  tryFinishPrompt = () => {
     if (this.state.value.trim() == '') return;
     this.props.onClick(this.state.value);
     this.setState({value: ''});
   }
 
   componentDidUpdate() {
+    // Focus the prompt when it "pops up"
     if (this.props.visible) {
       this.domRef.focus();
     }
@@ -203,12 +259,12 @@ class SimplePrompt extends React.Component {
           </button>
           <div style={{overflow: 'hidden'}}>
             <input 
-              ref={(a) => this.domRef = a}
+              ref={a => this.domRef = a}
               style={{width: '100%'}}
               className='form-control' 
               value={this.state.value} 
               onKeyDown={this.onKeyDown}
-              onChange={this.onChange}></input>
+              onChange={this.onChange} />
           </div>
         </div>
       </div>
@@ -216,30 +272,31 @@ class SimplePrompt extends React.Component {
   }
 }
 
-// Two add buttons for adding a new box or importing an RSS feed
-// [Props: onAdd, onRss, rssColor]
-class TDAdder extends React.Component {
+// Buttons for adding a new box, importing an RSS feed, or submitting the data
+// [Props: onAdd, onRss, onSubmit; rssColor, isSubmitDisabled]
+class TdAdder extends React.Component {
   constructor(props) {
     super(props);
-    this.onAddClick = this.onAddClick.bind(this);
-    this.onRssClick = this.onRssClick.bind(this);
-    this.onPromptClick = this.onPromptClick.bind(this);
     this.state = {
       promptVisible: false
     };
   }
 
-  onPromptClick(url) {
+  onPromptClick = url => {
     this.setState({promptVisible: false});
     this.props.onRss(url);
   }
 
-  onAddClick(e) {
+  onRssClick = e => {
+    this.setState(prevState => {return {promptVisible: !prevState.promptVisible}});
+  }
+
+  onAddClick = e => {
     this.props.onAdd();
   }
 
-  onRssClick(e) {
-    this.setState((prevState) => {return {promptVisible: !prevState.promptVisible}});
+  onSubmitClick = e => {
+    this.props.onSubmit();
   }
 
   render() {
@@ -251,6 +308,10 @@ class TDAdder extends React.Component {
             style={{backgroundColor: this.props.rssColor}}
             className='someHorizontalPadding btn btn-info' 
             onClick={this.onRssClick}>RSS</button>
+          <button 
+            disabled={this.props.isSubmitDisabled}
+            className='someHorizontalPadding btn btn-info' 
+            onClick={this.onSubmitClick}>Submit</button>
         </div>
         <SimplePrompt 
           buttonLabel='Add' 
@@ -262,22 +323,77 @@ class TDAdder extends React.Component {
 }
 
 // A list of TitleDescriptions
-// [Props: tds - list of {title, description, id}, onDelete]
-function TDList(props) {
+// [Props: tds - list of {title, description, id}, onDelete, onTextLoseFocus]
+function TdList(props) {
   return (
     <div className='somePadding'>
-      {props.tds.map((a) => 
+      {props.tds.map(a => 
         <TitleDescription 
           key={a.id} id={a.id}
-          onDeleteSignal={props.onDelete}
+          onDelete={props.onDelete}
+          onLoseFocus={props.onTextLoseFocus}
           title={a.title}>{a.description}</TitleDescription>
       )}
     </div>
   );
 }
 
+// Bootstrap pop up for server wait, hence not closeable by user
+// [Props: title, children - a string, show]
+class WaitingModal extends React.Component {
+  constructor(props) {
+    super(props);
+    console.assert(typeof props.children === 'string');
+    this.state = {
+      children: props.children
+    };
+  }
+
+  updateVisibility() {
+    $(this.domRef).modal(this.props.show ? 'show' : 'hide');
+  }
+
+  componentDidMount() {
+    this.updateVisibility();
+
+    // Permanent '...' animation
+    let dots = 0;
+    setInterval(() => {
+      dots = (dots + 1) % 4;
+      this.setState({children: this.props.children + '.'.repeat(dots)});
+    }, 300);
+  }
+
+  componentDidUpdate() {
+    this.updateVisibility();
+  }
+
+  render() {
+    return (
+      <div 
+        className='modal fade' 
+        tabIndex='-1' role='dialog' 
+        data-backdrop='static'
+        data-keyboard='false'
+        ref={a => this.domRef = a}>
+        <div className='modal-dialog' role='document'>
+          <div className='modal-content'>
+            <div style={{backgroundColor: '#5bc0de'}} className='modal-header'>
+              <h4 className='modal-title'><b>{this.props.title}</b></h4>
+            </div>
+            <div className='modal-body'>
+              {this.state.children}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
 // The main app
-// [Props: tds - list of {title, description, id}, rssColor, onAdd, onRss, onDelete]
+// [Props: tds - list of {title, description, id}, 
+//  rssColor, isSubmitDisabled, isSubmitting; onAdd, onRss, onDelete, onSubmit, onTextLoseFocus]
 function App(props) {
   return (
     <div>
@@ -292,8 +408,19 @@ function App(props) {
           <h1>Viz</h1>
         </div>
       </div>
-      <TDAdder onAdd={props.onAdd} onRss={props.onRss} rssColor={props.rssColor}/>
-      <TDList tds={props.tds} onDelete={props.onDelete} />
+      <TdAdder 
+        onAdd={props.onAdd}
+        onRss={props.onRss} 
+        onSubmit={props.onSubmit}
+        rssColor={props.rssColor}
+        isSubmitDisabled={props.isSubmitDisabled} />
+      <TdList 
+        tds={props.tds} 
+        onDelete={props.onDelete} 
+        onTextLoseFocus={props.onTextLoseFocus} />
+      <WaitingModal title='' show={props.isSubmitting}>
+        Processing
+      </WaitingModal>
     </div>
   );
 }
@@ -307,12 +434,12 @@ function getRssState(state) {
 
 const getRssColor = createSelector(
   getRssState,
-  (rssState) => {
+  rssState => {
     switch (rssState) {
       case RSS_NORMAL:
         return '';
       case RSS_WORKING:
-        return 'green';
+        return 'black';
       case RSS_FAILED:
         return 'red';
       default:
@@ -322,22 +449,33 @@ const getRssColor = createSelector(
 );
 
 function makeMapStateToProps() {
-  return (state) => {
-    return {tds: state.tds, rssColor: getRssColor(state)};
+  return state => {
+    return {
+      tds: state.tds,
+      rssColor: getRssColor(state),
+      isSubmitDisabled: state.tds.length === 0,
+      isSubmitting: state.isSubmitting
+    };
   };
 }
 
 function mapDispatchToProps(dispatch) {
   return {
     onAdd: () => {
-      dispatch(addTD({title: '', description: ''}));
+      dispatch(addTd({title: '', description: ''}));
     },
-    onRss: (url) => {
+    onRss: url => {
       dispatch(requestRss(url));
     },
-    onDelete: (id) => {
-      dispatch(deleteTD(id));
-    }
+    onDelete: id => {
+      dispatch(deleteTd(id));
+    },
+    onSubmit: id => {
+      dispatch(submit());
+    },
+    onTextLoseFocus: td => {
+      dispatch(updateTd(td));
+    } 
   };
 }
 
@@ -347,6 +485,11 @@ const AppContainer = connect(makeMapStateToProps, mapDispatchToProps)(App);
 // Run
 
 let store = createStore(mainReducer, applyMiddleware(ReactThunk));
+
+// Create div that holds main component
+const root = document.createElement('div');
+root.id = 'root';
+document.body.appendChild(root);
 
 ReactDOM.render(
   <Provider store={store}>

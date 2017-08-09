@@ -21,15 +21,15 @@ app.listen(8080, () => {
 
 const MAX_ENTRIES = 20;
 app.get('/rss', (req, res) => {
-  const url = req.query.url;
-  console.log(`RSS request for ${url}`);
-  try { // Error model - if fails preconditions for parseURL, throw
+  try { 
+    const url = req.query.url;
+    console.log(`RSS request for ${url}`);
     rssParser.parseURL(url, (err, parsed) => {
       if (err !== null) {
         res.status(400).json({err});
       } else {
         const entries = parsed.feed.entries;
-        console.log(entries.length + ' entries');
+        console.log(`${url} gave ${entries.length} entries`);
         const trimmed = entries.length > MAX_ENTRIES ? _.take(entries, MAX_ENTRIES) : entries;
         const saved = trimmed.map(({title, content}) => ({title, description: content}));
         res.json(saved);
@@ -41,5 +41,10 @@ app.get('/rss', (req, res) => {
 });
 
 app.post('/cluster', (req, res) => {
-  res.json('Not implemented');
+  try {
+    console.log(`Cluster request with ${req.body.tds.length} items`);
+    res.json('Not implemented');
+  } catch (err) {
+    res.status(400).json({err});
+  }
 });
