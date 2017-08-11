@@ -6,9 +6,9 @@ import App from '../components/app';
 function makeMapStateToProps() {
   return state => {
     return {
-      tds: state.tds.array,
+      tds: state.tds,
       rssColor: getRssColor(state),
-      isSubmitDisabled: state.tds.array.length === 0,
+      isSubmitDisabled: state.tds.length === 0,
       isSubmitting: state.isSubmitting
     };
   };

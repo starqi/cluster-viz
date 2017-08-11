@@ -1,5 +1,8 @@
+import _ from 'lodash';
+
+var idCounter = 0;
 export function addTd(td) {
-  return {type: 'ADD_TD', td};
+  return {type: 'ADD_TD', td: Object.assign({id: idCounter++}, td)};
 }
 
 export function updateTd(td) {
@@ -74,7 +77,7 @@ export function submit() {
         dispatch(endSubmit());
       }).fail(() => {
         console.log('Cluster failed');
-        window.location.replace('/#/cluster-fail');
+        alert('Unknown server error. LOL!');
         dispatch(endSubmit());
       });
     }, PAD_TIME);

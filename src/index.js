@@ -7,7 +7,6 @@ import {HashRouter, Switch, Route} from 'react-router-dom';
 //
 import appReducer from './reducers/app-reducer';
 import Cluster from './components/cluster';
-import ClusterFail from './components/cluster-fail';
 import AppContainer from './containers/app-container';
 
 let store = createStore(appReducer, applyMiddleware(ReactThunk));
@@ -19,7 +18,6 @@ ReactDOM.render(
     <HashRouter>
       <Switch>
         <Route exact path='/cluster' component={Cluster}/>
-        <Route exact path='/cluster-fail' component={ClusterFail}/>
         <Route path='/' component={AppContainer}/>
       </Switch>
     </HashRouter>

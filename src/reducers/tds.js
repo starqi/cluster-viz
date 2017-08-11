@@ -1,21 +1,13 @@
-function tds(state = {array: [], idCounter: 0}, action) {
+function tds(state = [], action) {
   switch (action.type) {
     case 'ADD_TD':
-      const tdWithId = Object.assign({}, action.td, {id: state.idCounter});
-      return {
-        array: [tdWithId, ...state.array],
-        idCounter: state.idCounter + 1
-      };
+      return [action.td, ...state];
     case 'UPDATE_TD':
-      return {
-        array: state.array.map(a => a.id === action.td.id ? action.td : a),
-        idCounter: state.idCounter
-      };
+      let copy = state.slice();
+      const index = state.findIndex(a => a.id === action.td.id);
+      Object.assign(copy[index], action.td);
     case 'DELETE_TD':
-      return {
-        array: state.array.filter(a => a.id !== action.id),
-        idCounter: state.idCounter
-      };
+      return state.filter(a => a.id !== action.id);
     default:
       return state;
   }
