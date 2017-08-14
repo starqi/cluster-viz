@@ -4,8 +4,7 @@ const app = express();
 const rssParser = require('rss-parser');
 const bodyParser = require('body-parser');
 const _ = require('lodash');
-
-// ---
+//const nlp = require('./nlp.js');
 
 const distFolder = path.join(__dirname, '../dist');
 const indexHtml = path.join(distFolder, 'index.html');
