@@ -2,7 +2,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import * as Bootstrap from 'bootstrap/dist/js/bootstrap.min.js';
 import React from 'react';
 import PropTypes from 'prop-types';
-//
+
 import '../css/stuff.css';
 import tuxIconUrl from '../images/tux.png';
 import TdAdder from './td-adder';

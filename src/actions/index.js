@@ -58,6 +58,10 @@ export function endSubmit() {
   return {type: 'END_SUBMIT'};
 }
 
+export function setClusterData(data) {
+  return {type: 'SET_CLUSTER_DATA', data};
+}
+
 const PAD_TIME = 1500; // Show off the loading pop up
 export function submit() {
   return (dispatch, getState) => {
@@ -71,9 +75,8 @@ export function submit() {
         dataType: 'json'
       }).done(data => {
         console.log('Cluster success');
-        // If we follow the official advice and view the router as a separate source of truth
-        // then it makes sense to interpret this as changing the router state.
-        window.location.replace('/#/cluster');
+        dispatch(setClusterData(data.clusters));
+        window.location.replace('/#/cluster'); // Treat router as 2nd store
         dispatch(endSubmit());
       }).fail(() => {
         console.log('Cluster failed');

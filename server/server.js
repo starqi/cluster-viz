@@ -43,7 +43,52 @@ app.get('/rss', (req, res) => {
 app.post('/cluster', (req, res) => {
   try {
     console.log(`Cluster request with ${req.body.tds.length} items`);
-    res.json('Not implemented');
+    res.json({
+      clusters: [
+        {
+          title: 'cluster1',
+          items: [
+            {
+              title: 'item1',
+              distance: 0.2
+            },
+            {
+              title: 'item2',
+              distance: 0.3
+            },
+            {
+              title: 'item3',
+              distance: 0.4
+            },
+            {
+              title: 'item4',
+              distance: 0.5
+            }
+          ]
+        },
+        {
+          title: 'cluster2',
+          items: [
+            {
+              title: 'item1',
+              distance: 0.6
+            },
+            {
+              title: 'item2',
+              distance: 0.7
+            },
+            {
+              title: 'item3',
+              distance: 0.8
+            },
+            {
+              title: 'item4',
+              distance: 0.9
+            }
+          ]
+        }
+      ]
+    });
   } catch (err) {
     res.status(400).json({err});
   }

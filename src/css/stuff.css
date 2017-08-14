@@ -32,3 +32,18 @@
 .inlinedDiv {
   display: inline-block;
 }
+
+.svgLine {
+  stroke-width: 1px;
+  stroke: black;
+}
+
+.svgCluster {
+  fill: red;
+  font-weight: bold;
+  font-size: large;
+}
+
+.svgContainer {
+  background: #e7f5ee
+}

@@ -1,6 +1,5 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-//
 import SimplePrompt from './simple-prompt';
 
 // Buttons for adding a new box, importing an RSS feed, or submitting the data

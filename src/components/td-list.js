@@ -1,6 +1,5 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-//
 import TitleDescription from './title-description';
 
 // A list of TitleDescriptions
