@@ -1,90 +1,215 @@
+const mag = require('vectors/mag-nd');
+const add = require('vectors/add-nd');
+const mult = require('vectors/mult-nd');
+const sub = require('vectors/sub-nd');
+const dot = require('vectors/dot-nd');
+const normalize = require('vectors/normalize-nd');
+const util = require('util');
+
 function tokenize(text) {
   return text.replace(/[^a-zA-Z\ ]/g, '').split(' ');
 }
 
-function tokenizeTd({title, description}) {
-  return {
-    titleArr: tokenize(title),
-    descriptionArr: tokenize(description)
-  };
+class Vocab {
+  constructor() {
+    this.dict = new Map();
+    this.counter = 0;
+  }
 }
 
-function addToVocab(textArr, vocab) { // IMPURE
-  textArr.forEach(word => {
+function addToVocab(tokens, vocab) { // IMPURE
+  tokens.forEach(word => {
     if (!vocab.dict.has(word)) vocab.dict.set(word, vocab.counter++)
   });
 }
 
-function addTdToVocab({titleArr, descriptionArr}, vocab) {
-  addToVocab(titleArr, vocab);
-  addToVocab(descriptionArr, vocab);
-}
-
-function binarize(textArr, {dict, counter}) {
+function tokensToVec(tokens, {dict, counter}) {
   let vector = Array(dict.size).fill(0);
-  textArr.forEach(word => vector[dict.get(word)] = 1);
+  tokens.forEach(word => vector[dict.get(word)] = 1);
   return vector;
 }
 
-function binarizeTd(tdArr, vocab) {
-  return {
-    titleBin: binarize(tdArr.titleArr, vocab),
-    descriptionBin: binarize(tdArr.descriptionArr, vocab)
-  };
-}
-
-function getIdfArr(tdBins, {dict}) {
+// Returns an array containing the IDF factor for each word in the vocabulary
+// *vecs* - All the documents represented as vectors
+// *{dict} - The vocabulary
+function getIdfArr(vecs, {dict}) {
   let idfArr = Array(dict.size);
   dict.forEach((index, word) => { // For each dictionary word
     // Counter the number of TDs which contain that word
-    const count = tdBins.reduce((acc, tdBin) => {
-      const contains = tdBin.titleBin[index] == 1 || tdBin.descriptionBin[index] == 1;
-      return acc + (contains ? 1 : 0);
+    const count = vecs.reduce((acc, vecs) => {
+      return acc + (vecs[index] === 1 ? 1 : 0);
     }, 0);
     console.assert(count > 0); // Because of the way dict is constructed
-    const idf = Math.log(tdBins.length / count); // The IDF formula - occur in every doc -> 0
+    const idf = Math.log(vecs.length / count); // The IDF formula - occur in every doc -> 0
     idfArr[index] = idf;
   });
   return idfArr;
 }
 
-function normalizeBin(textBin, idfArr) {
-  return textBin.map((b, i) => b * idfArr[i]);
+function vectorApplyIdf(vecs, idfArr) {
+  return vecs.map((b, i) => b * idfArr[i]);
 }
 
-function normalizeTdBin(tdBin, idfArr) {
-  return {
-    titleIdf: normalizeBin(tdBin.titleBin, idfArr),
-    descriptionIdf: normalizeBin(tdBin.descriptionBin, idfArr)
-  };
+// 0 angle => 0 distance, 180 degrees => 2 distance
+function cosDist(v1, v2) {
+  console.assert(v1.length == v2.length);
+  //console.assert(mag(v1) != 0 && mag(v2) != 0);
+  const cos = dot(v1, v2) / (mag(v1) * mag(v2));
+  return 1 - cos;
 }
 
-function kMeans(tdIdfs, k) {
+// Normalized average of the normalized versions of an array of vectors
+function normAvg(vs) {
+  console.assert(vs.length != 0);
+  const sumNorms = vs.reduce((acc, v) => add(acc, normalize(v)));
+  const avgNorms = mult(sumNorms, 1 / vs[0].length); // assert(All same length)
+  return normalize(avgNorms);
 }
 
-function tdsToClusters(tds) {
+// Picks *num* random and unique elements from *arr*
+function randomTake(arr, num) {
+  let indices = Array(arr.length);
+  for (let i = 0; i < indices.length; ++i) 
+    indices[i] = i; // 1, 2, 3, ..., |arr|
+  let taken = [];
+  for (let i = 0; i < num; ++i) {
+    let index = indices.splice(Math.floor(Math.random() * indices.length), 1)[0]; // Note: [0, 1)
+    taken.push(arr[index]);
+  }
+  return taken;
+}
+
+MAX_ITERATIONS = 25;
+MIN_PERCENT_DROP = 0.01;
+MIN_DIST = 0.001;
+
+function skMeans(idfVecs, k) {
+  let centroids = randomTake(idfVecs, k).map(c => {
+    return {vector: c, children: null, dist: null};
+  });
+
+  let lastDist = null;
+
+  for (let i = 0; i < MAX_ITERATIONS; ++i) {
+
+    // Refresh children
+    centroids.forEach(centroid => {
+      centroid.children = [];
+    });
+
+    // Assign TDs to closest centroid
+    idfVecs.forEach(idfVec => {
+      const defaultAcc = {centroid: null, dist: Infinity};
+      const closest = centroids.reduce((shortest, centroid) => {
+        const dist = cosDist(centroid.vector, idfVec); 
+        return dist < shortest.dist ? {centroid, dist} : shortest;
+      }, defaultAcc);
+      closest.centroid.children.push(idfVec);
+    });
+
+    // Compute new centroid location
+    centroids.forEach(centroid => {
+      centroid.vector = normAvg(centroid.children);
+    });
+
+    // Compute total distance from centroid to children
+    centroids.forEach(centroid => {
+      centroid.children.forEach(child => {
+        child.dist = cosDist(centroid.vector, child);
+      });
+      centroid.dist = centroid.children.reduce(
+        (acc, child) => child.dist + acc
+      , 0);
+    });
+
+    // Add all centroid distances
+    const totalDist = centroids.reduce((acc, centroid) => centroid.dist + acc, 0);
+
+    if (lastDist !== null) {
+      const percentageChange = 1 - totalDist / lastDist;
+      console.log(`sk-means dist=${totalDist} reduction=${percentageChange * 100}%`);
+      if (percentageChange < MIN_PERCENT_DROP) break;
+    } else {
+      console.log(`skin-means dist=${totalDist}`);
+      if (totalDist < MIN_DIST) break;
+    }
+
+    lastDist = totalDist;
+  }
+
+  return centroids;
+}
+
+function tdsToClusters(tds, k) {
+  let vocab = new Vocab;
+
+  const tokensArr = tds.map(td => {
+    const tokens = tokenize(td.description);
+    addToVocab(tokens, vocab);
+    tokens.title = td.title; // Keep track of original title
+    return tokens;
+  });
+
+  const vecs = tokensArr.map(tokens => {
+    const vec = tokensToVec(tokens, vocab);
+    vec.title = tokens.title; 
+    return vec;
+  });
+
+  const idfArr = getIdfArr(vecs, vocab);
+
+  const idfVecs = vecs.map(vec => {
+    const idfVec = vectorApplyIdf(vec, idfArr);
+    idfVec.title = vec.title;
+    return idfVec;
+  });
+
+  const centroids = skMeans(idfVecs, k);
+
+  // Convert to client format
+  const clusters = centroids.map(centroid => {
+
+    // Highest centroid to child distance in this cluster
+    const maxDist = centroid.children.reduce(
+      (acc, child) => child.dist > acc ? child.dist : acc
+    , -Infinity);
+
+    return {
+      title: 'cluster',
+      items: centroid.children.map(child => {
+        return {
+          title: child.title,
+          distance: (child.dist + 1) / (maxDist + 1)
+        };
+      })
+    };
+  });
+
+  return {clusters};
 }
 
 function shittyTesting() {
-  let a = tokenizeTd({title: 'bob', description: 'bo___b is the best!'});
-  let b = tokenizeTd({title: 'jill', description: '<<jill is the second best!'});
-  let m = {dict: new Map(), counter: 0};
-  addTdToVocab(a, m);
-  addTdToVocab(b, m);
-  console.log(m);
-  console.log(a);
-  console.log(b);
-  let a2 = binarizeTd(a, m);
-  let b2 = binarizeTd(b, m);
-  console.log(a2);
-  console.log(b2);
-  let idfArr = getIdfArr([a2, b2], m);
-  console.log(idfArr);
-  let a3 = normalizeTdBin(a2, idfArr);
-  let b3 = normalizeTdBin(b2, idfArr);
-  console.log(a3);
-  console.log(b3);
+  const tds = [
+    {
+      title: 'a',
+      description: 'bo___b is the best!'
+    },
+    {
+      title: 'b',
+      description: '<<jill is the second best!'
+    },
+    {
+      title: 'c',
+      description: 'happy happy holiday yes i hooray'
+    },
+    {
+      title: 'd',
+      description: 'hooray yes whee holiday is here no wait'
+    }
+  ];
+  console.log(util.inspect(tdsToClusters(tds, 1), {depth: null}));
 }
 
-shittyTesting();
-
+module.exports = {
+  tdsToClusters
+};

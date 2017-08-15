@@ -1,13 +1,13 @@
 {
-  "name": "simple-web-proj",
-  "version": "1.0.0",
+  "name": "cluster-viz",
+  "version": "0.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack",
     "watch": "webpack --watch",
-    "server": "node server/server.js"
+    "start": "node server/server.js"
   },
   "keywords": [],
   "author": "",
@@ -41,6 +41,7 @@
     "redux": "^3.7.2",
     "redux-thunk": "^2.2.0",
     "reselect": "^3.0.1",
-    "rss-parser": "^2.10.1"
+    "rss-parser": "^2.10.1",
+    "vectors": "^0.1.0"
   }
 }
