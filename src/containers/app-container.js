@@ -1,5 +1,5 @@
 import {connect} from 'react-redux';
-import {addTd, deleteTd, updateTd, requestRss, submit} from '../actions';
+import {addTd, deleteTd, updateTd, requestRss, submit, updateClusterCount} from '../actions';
 import getRssColor from '../selectors/get-rss-color.js';
 import App from '../components/app';
 
@@ -9,7 +9,8 @@ function makeMapStateToProps() {
       tds: state.tds,
       rssColor: getRssColor(state),
       isSubmitDisabled: state.tds.length === 0,
-      isSubmitting: state.isSubmitting
+      isSubmitting: state.isSubmitting,
+      clusterCount: state.clusterCount
     };
   };
 }
@@ -30,7 +31,10 @@ function mapDispatchToProps(dispatch) {
     },
     onTextLoseFocus: td => {
       dispatch(updateTd(td));
-    } 
+    },
+    onClusterCountChange: num => {
+      dispatch(updateClusterCount(num));
+    }
   };
 }
 

@@ -62,7 +62,11 @@ export function setClusterData(data) {
   return {type: 'SET_CLUSTER_DATA', data};
 }
 
-const PAD_TIME = 1500; // Show off the loading pop up
+export function updateClusterCount(num) {
+  return {type: 'UPDATE_CLUSTER_COUNT', num};
+}
+
+const PAD_TIME = 500; // Show off the loading pop up
 export function submit() {
   return (dispatch, getState) => {
     dispatch(beginSubmit());
@@ -70,7 +74,7 @@ export function submit() {
       $.ajax({
         type: 'POST',
         url: 'cluster',
-        data: JSON.stringify(_.pick(getState(), ['tds'])),
+        data: JSON.stringify(_.pick(getState(), ['tds', 'clusterCount'])),
         contentType: 'application/json',
         dataType: 'json'
       }).done(data => {

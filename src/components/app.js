@@ -8,9 +8,14 @@ import tuxIconUrl from '../images/tux.png';
 import TdAdder from './td-adder';
 import TdList from './td-list';
 import WaitingModal from './waiting-modal';
+import ClusterCount from './cluster-count';
 
 // The main app
-const App = ({tds, rssColor, isSubmitDisabled, isSubmitting, onAdd, onRss, onDelete, onSubmit, onTextLoseFocus}) => (
+const App = ({
+  tds, rssColor, isSubmitDisabled, isSubmitting, clusterCount,
+  onAdd, onRss, onDelete, onSubmit, onTextLoseFocus,
+  onClusterCountChange
+}) => (
   <div>
     <div id='myTitle'> 
       <div className='inlinedDiv'>
@@ -23,6 +28,7 @@ const App = ({tds, rssColor, isSubmitDisabled, isSubmitting, onAdd, onRss, onDel
         <h1>Viz</h1>
       </div>
     </div>
+    <ClusterCount count={clusterCount} onChange={onClusterCountChange}/>
     <TdAdder 
       onAdd={onAdd} onRss={onRss} onSubmit={onSubmit}
       rssColor={rssColor} isSubmitDisabled={isSubmitDisabled}/>
@@ -42,7 +48,8 @@ App.propTypes = {
   onRss: PropTypes.func,
   onDelete: PropTypes.func,
   onSubmit: PropTypes.func,
-  onTextLoseFocus: PropTypes.func
+  onTextLoseFocus: PropTypes.func,
+  onClusterCountChange: PropTypes.func
 };
 
 export default App;

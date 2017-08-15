@@ -24,8 +24,8 @@ function toItems(clusters) {
     return cluster.items.map((item, j) => (
       <ItemLabel 
         key={i + '-' + j} title={item.title} 
-        x={MAX_DIST * item.distance * Math.cos(j * angleSkip) + HORIZONTAL_START} 
-        y={MAX_DIST * item.distance * Math.sin(j * angleSkip) + i * VERTICAL_SKIP + VERTICAL_START}
+        x={MAX_DIST * item.distance * Math.cos(j * angleSkip * (Math.random() * 0.2 + 0.8)) + HORIZONTAL_START} 
+        y={MAX_DIST * item.distance * Math.sin(j * angleSkip * (Math.random() * 0.2 + 0.8)) + i * VERTICAL_SKIP + VERTICAL_START}
         x2={HORIZONTAL_START} y2={i * VERTICAL_SKIP + VERTICAL_START}/>
     ));
   });

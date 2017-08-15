@@ -16,8 +16,6 @@ app.listen(8080, () => {
   console.log('Started on port 8080');
 });
 
-// http://joeroganexp.joerogan.libsynpro.com/rss
-
 const MAX_ENTRIES = 20;
 app.get('/rss', (req, res) => {
   try { 
@@ -30,11 +28,12 @@ app.get('/rss', (req, res) => {
         const entries = parsed.feed.entries;
         console.log(`${url} gave ${entries.length} entries`);
         const trimmed = entries.length > MAX_ENTRIES ? _.take(entries, MAX_ENTRIES) : entries;
-        const saved = trimmed.map(({title, content}) => ({title, description: content}));
+        const saved = trimmed.map(({title, content}) => ({title, description: nlp.preTokenize(content)})); // Remove HTML tags
         res.json(saved);
       }
     });
   } catch (err) {
+    console.log(err);
     res.status(400).json({err});
   }
 });
@@ -42,8 +41,9 @@ app.get('/rss', (req, res) => {
 app.post('/cluster', (req, res) => {
   try {
     console.log(`Cluster request with ${req.body.tds.length} items`);
-    console.log(req.body.tds);
-    res.json(nlp.tdsToClusters(req.body.tds, 2));
+    const clusterCount = parseInt(req.body.clusterCount); // <TODO> Middleware?
+    console.assert(!isNaN(clusterCount));
+    res.json(nlp.tdsToClusters(req.body.tds, clusterCount));
   } catch (err) {
     console.log(err);
     res.status(400).json({err});
