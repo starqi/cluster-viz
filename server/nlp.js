@@ -1,61 +1,21 @@
 const util = require('util');
+const vectors = require('./vectors.js');
 
-// <TODO> Extract out
-
-function norm(v) {
-  const m = mag(v);
-  if (m === 0) 
-    return null;
-  else
-    return mult(v, 1 / m);
-}
-
-function add(v1, v2) {
-  console.assert(v1.length == v2.length);
-  let nv = Array(v1.length);
-  for (let i = 0; i < nv.length; ++i) {
-    nv[i] = v1[i] + v2[i];
-  }
-  return nv;
-}
-
-function mult(v, c) {
-  let nv = Array(v.length);
-  for (let i = 0; i < nv.length; ++i) {
-    nv[i] = v[i] * c;
-  }
-  return nv;
-}
-
-function mag(v) {
-  return Math.sqrt(dot(v, v));
-}
-
-function sub(v1, v2) {
-  console.assert(v1.length == v2.length);
-  let nv = Array(v1.length);
-  for (let i = 0; i < nv.length; ++i) {
-    nv[i] = v1[i] - v2[i];
-  }
-  return nv;
-}
-
-function dot(v1, v2) {
-  console.assert(v1.length == v2.length);
-  let sum = 0;
-  for (let i = 0; i < v1.length; ++i) {
-    sum += v1[i] * v2[i];
-  }
-  return sum;
-}
+// <TODO> Better way?
+norm = vectors.norm;
+add = vectors.add;
+mult = vectors.mult;
+mag = vectors.mag;
+sub = vectors.sub;
+dot = vectors.dot;
 
 function preTokenize(text) {
   return text // CAREFUL of '' vs ' '
-    .replace(/<[^<>]*>/g, '') // Remove HTML tags (I think this only does one layer <TODO>)
-    .replace(/[^A-za-z']/g, ' ')
+    .replace(/<[^<>]*>/g, '') // Interesting, since no subtags, can remove all HTML like this
+    .replace(/[^A-za-z']/g, ' ') // Non-letters into spaces
     .replace(/[\ \n]+/g, ' ') // No long whitespaces
-    .replace(/^\ /g, '') // Single whitespace at line start
-    .toLowerCase();
+    .replace(/^\ /g, '') // Remove single whitespace at line start (whatever)
+    .toLowerCase(); // Important for hashing!
 }
 
 function tokenize(text) {
@@ -118,17 +78,11 @@ function cosDist(v1, v2) {
 }
 
 // Normalized average of the normalized versions of an array of vectors
+// Returns null if answer is the zero vector
 function normAvg(vs) {
   const sumNorms = vs.reduce((acc, v) => add(acc, norm(v)));
   const avgNorms = mult(sumNorms, 1 / vs.length); 
   return norm(avgNorms); // Returns null if all zeroes
-}
-
-function isAllZeroes(v) {
-  for (let i = 0; i < v.length; ++i) {
-    if (v[i] !== 0) return false;
-  }
-  return true;
 }
 
 // Picks *num* random and unique elements from *arr*
@@ -147,19 +101,17 @@ function randomTake(arr, num) {
 }
 
 MAX_ITERATIONS = 25;
-MIN_PERCENT_DROP = 0.01;
-MIN_DIST = 0.001;
+MIN_PERCENT_DROP = 0.01; // Give up if doesn't improve
+MIN_DIST = 0.001; // Quit if reaches a certain low distance
 
 function skMeans(idfVecs, k) {
-  // # centroids is upper bounded by # items
+  // Note: # centroids is upper bounded by # items
   let centroids = randomTake(idfVecs, k).map(c => {
     return {vector: c, children: null, dist: null};
   });
 
   let lastDist = null;
-
   for (let i = 0; i < MAX_ITERATIONS; ++i) {
-
     // Refresh children
     centroids.forEach(centroid => {
       centroid.children = [];
@@ -173,16 +125,16 @@ function skMeans(idfVecs, k) {
         return dist < shortest.dist ? {centroid, dist} : shortest;
       }, defaultAcc);
       closest.centroid.children.push(idfVec);
-      idfVec.dist = closest.dist;
+      idfVec.dist = closest.dist; // Record distance on TD vector
     });
 
     // Compute new total dist to children & new centroid location,
-    // note these two have a mismatch
+    // note that these two have a mismatch, but that doesn't change anything
     centroids.forEach(centroid => {
       centroid.dist = centroid.children.reduce(
         (acc, child) => child.dist + acc, 0);
-      // Only change it if it does not degen into the origin
       const n = normAvg(centroid.children);
+      // Only change centroid if it does not degen into the origin
       if (n !== null) centroid.vector = n;
     });
 
@@ -190,9 +142,9 @@ function skMeans(idfVecs, k) {
     const totalDist = centroids.reduce((acc, centroid) => centroid.dist + acc, 0);
 
     if (lastDist !== null) {
-      const percentageChange = 1 - totalDist / lastDist;
-      console.log(`sk-means dist=${totalDist} reduction=${percentageChange * 100}%`);
-      if (percentageChange < MIN_PERCENT_DROP) break;
+      const percentageDrop = 1 - totalDist / lastDist;
+      console.log(`sk-means dist=${totalDist} reduction=${percentageDrop * 100}%`);
+      if (percentageDrop < MIN_PERCENT_DROP) break;
     } else {
       console.log(`sk-means dist=${totalDist}`);
       if (totalDist < MIN_DIST) break;
@@ -205,6 +157,7 @@ function skMeans(idfVecs, k) {
 }
 
 function tdsToClusters(tds, k) {
+  // Edge case:
   // As long as there are no empty descriptions,
   // each vector will not be the zero vector
   tds = tds.filter(td => td.description.trim() !== '');
@@ -253,12 +206,13 @@ function tdsToClusters(tds, k) {
     //console.log("MAX", maxDist);
     //console.log("MIN", minDist);
     return {
-      title: 'cluster',
+      title: 'cluster', // <TODO> Name cluster with frequent words
       items: centroid.children.map(child => {
         //console.log(child.dist);
         return {
           title: child.title,
-          distance: (child.dist - minDist + 0.2) / (maxDist - minDist + 0.2) 
+          // Scale distance as a percentage, but don't allow 0% (looks bad on SVG)
+          distance: (child.dist - minDist + 0.1) / (maxDist - minDist + 0.1) 
         };
       })
     };
@@ -267,7 +221,7 @@ function tdsToClusters(tds, k) {
   return {clusters};
 }
 
-// <TODO> Testing framework
+// <TODO> Testing framework & unit testing for above functions
 function test1() { 
   const tds = [
     {
