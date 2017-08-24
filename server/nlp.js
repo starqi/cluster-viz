@@ -1,7 +1,6 @@
 const util = require('util');
 const vectors = require('./vectors.js');
 
-// <TODO> Better way?
 norm = vectors.norm;
 add = vectors.add;
 mult = vectors.mult;
@@ -18,8 +17,12 @@ function preTokenize(text) {
     .toLowerCase(); // Important for hashing!
 }
 
+// Our typical dataset is so small, that common words that are supposed to be
+// removed by IDF (eg. "for", "in") were actually rare. So set a min length. 
+const MIN_LENGTH = 5;
+
 function tokenize(text) {
-  return preTokenize(text).split(' ');
+  return preTokenize(text).split(' ').filter(a => a.length >= MIN_LENGTH);
 }
 
 class Vocab {
@@ -29,12 +32,18 @@ class Vocab {
     // This special word will never exist b/c of preTokenize
     this.counter = 1;
     this.dict.set('#', 0);
+    this.inverseDict = new Map();
+    this.inverseDict.set(0, '#');
   }
 }
 
 function addToVocab(tokens, vocab) { // IMPURE
   tokens.forEach(word => {
-    if (!vocab.dict.has(word)) vocab.dict.set(word, vocab.counter++)
+    if (!vocab.dict.has(word)) {
+      vocab.dict.set(word, vocab.counter)
+      vocab.inverseDict.set(vocab.counter, word);
+      vocab.counter++;
+    }
   });
 }
 
@@ -205,8 +214,22 @@ function tdsToClusters(tds, k) {
     , Infinity);
     //console.log("MAX", maxDist);
     //console.log("MIN", minDist);
+
+    const sumOfChildren = centroid.children.reduce(add);
+    //console.log("SUM CHILD", sumOfChildren);
+    let max = -Infinity;
+    let maxWhere = -1;
+    for (let i = 0; i < sumOfChildren.length; i++) {
+      if (sumOfChildren[i] > max) {
+        max = sumOfChildren[i];
+        maxWhere = i;
+      }
+    }
+    //console.log("INVERSE LOCATION", maxWhere);
+    //console.log("INVERSE", vocab.inverseDict);
+
     return {
-      title: 'cluster', // <TODO> Name cluster with frequent words
+      title: vocab.inverseDict.get(maxWhere), // <TODO> Could use quick-select
       items: centroid.children.map(child => {
         //console.log(child.dist);
         return {
@@ -221,7 +244,6 @@ function tdsToClusters(tds, k) {
   return {clusters};
 }
 
-// <TODO> Testing framework & unit testing for above functions
 function test1() { 
   const tds = [
     {

@@ -3,8 +3,8 @@ import PropTypes from 'prop-types';
 
 const ItemLabel = ({title, x, y, x2, y2}) => (
   <g>
-    <text x={x} y={y}>{title}</text>
-    <line className="svgLine" x1={x} y1={y} x2={x2} y2={y2}/>
+    <text className='svgLabel' x={x} y={y}>{title}</text>
+    <line className='svgLine' x1={x} y1={y} x2={x2} y2={y2}/>
   </g>
 );
 

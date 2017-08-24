@@ -21,7 +21,11 @@ function toComponents(clusters) {
 function toItems(clusters) {
   const itemArrays = clusters.map((cluster, i) => {
     let angleSkip = 2 * 3.14159 / cluster.items.length;
-    return cluster.items.map((item, j) => (
+    return cluster.items.sort((a, b) => {
+      if (a.distance > b.distance) return -1;
+      else if (a.distance === b.distance) return 0;
+      else return 1;
+    }).map((item, j) => (
       <ItemLabel 
         key={i + '-' + j} title={item.title} 
         x={MAX_DIST * item.distance * Math.cos(j * angleSkip * (Math.random() * 0.2 + 0.8)) + HORIZONTAL_START} 

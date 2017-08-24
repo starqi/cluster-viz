@@ -35,15 +35,20 @@
 
 .svgLine {
   stroke-width: 1px;
-  stroke: black;
+  stroke: #64b5c1;
 }
 
 .svgCluster {
-  fill: red;
+  fill: #efd2d8;
   font-weight: bold;
-  font-size: large;
+  font-size: 100px;
 }
 
 .svgContainer {
-  background: #e7f5ee
+  background: #e7f5ee;
+}
+
+.svgLabel {
+  font-weight: bold;
+  fill: #178263;
 }
